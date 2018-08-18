@@ -1,2 +1,5 @@
 syntax: global
 .idea/*
+__pycache__/*
+play_time.py
+
