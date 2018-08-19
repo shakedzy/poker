@@ -23,7 +23,7 @@ class Player:
         self.hand.append(card)
 
     @abstractmethod
-    def play(self, board, bets, active_players, possible_actions, **kwargs):
+    def play(self, board, bets, active_players, possible_actions, history, **kwargs):
         return None
 
     @abstractmethod
@@ -43,7 +43,7 @@ class Drunk(Player):
         self._dont_fold = dont_fold
         super(Drunk, self).__init__(name)
 
-    def play(self, board, bets, active_players, possible_actions, **kwargs):
+    def play(self, board, bets, active_players, possible_actions, history, **kwargs):
         reset_seed()
         actions = list(possible_actions)
         if self._dont_fold and len(actions) > 1:
@@ -59,10 +59,10 @@ class Human(Player):
     def __init__(self, name='User'):
         super(Human, self).__init__(name)
 
-    def play(self, board, bets, active_players, possible_actions, **kwargs):
-        players_names = kwargs['players_names']
+    def play(self, board, bets, active_players, possible_actions, history, **kwargs):
+        players_names = kwargs.get('players_names', dict(map(lambda i: (i, str(i)), range(len(bets)))))
         print('* * * * * *')
-        print("{n}'s turn (Player's ID: {i}):".format(n=self.name, i=self.id))
+        print("{n}'s turn (Player ID: {i}):".format(n=self.name, i=self.id))
         print('Board: {}'.format(cards_to_string(board)))
         print('Hand: {}'.format(cards_to_string(self.hand)))
         print('Remaining chips: {}'.format(self.chips))

@@ -6,6 +6,11 @@ from treys import Card
 Actions = Enum('Actions', 'check match raise_1 raise_2 all_in fold')
 
 
+class PokerException(Exception):
+    def __init__(self, *args, **kwargs):
+        pass
+
+
 def reset_seed():
     random.seed(int(time.time()))
 

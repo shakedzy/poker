@@ -10,12 +10,13 @@ class Game:
     playing_player = None
     board = list()
     dealer = None
-    highest_bet = None
+    highest_bet = 0
     game_over = False
-    jackpot = None
+    jackpot = 0
+    history = list()
 
     _deck = list()
-    _print_logs = False
+    _print_logs = True
     _all_in_players = set()
 
     def _init_deck(self):
@@ -35,7 +36,7 @@ class Game:
         if self._print_logs:
             print('Player {p} adds {c} chips to the bet'.format(p=player, c=chips))
         if self.players[player].chips < chips:
-            raise ValueError('Player cannot afford this bet')
+            raise PokerException('Player cannot afford this bet')
         self.players[player].chips -= chips
         self.players[player].bet += chips
         self.jackpot += chips
@@ -44,7 +45,7 @@ class Game:
 
     def _pass_turn(self, player):
         if self.players[player].bet < self.highest_bet:
-            raise EnvironmentError('Player cannot check, must match bet first')
+            raise PokerException('Player cannot check, must match bet first')
 
     def _fold(self, player):
         winners = list()
@@ -126,8 +127,9 @@ class Game:
                 crd = 'cards'
             else:
                 crd = 'card'
-            print(' --> Drawing {0} {1}'.format(n, crd))
-            print('Board: {}'.format(cards_to_string(self.board)))
+            if self._print_logs:
+                print(' --> Drawing {0} {1}'.format(n, crd))
+                print('Board: {}'.format(cards_to_string(self.board)))
         return winners
 
     def _play_round(self):
@@ -141,27 +143,34 @@ class Game:
                 self._next_player()
             else:
                 bets = dict(map(lambda p: (p[0], p[1].bet), enumerate(self.players)))
-                action = self.players[self.playing_player].play(self.board, bets, self.active_players,
-                                                                self._get_possible_actions(self.playing_player),
-                                                                players_names=self.players_names)
-                if self._print_logs:
-                    print('Player {p} chose to {a}'.format(p=self.playing_player, a=action.name))
-                if action == Actions.check:
-                    self._pass_turn(self.playing_player)
-                elif action in [Actions.match, Actions.raise_1, Actions.raise_2]:
-                    bet = self.highest_bet - self.players[self.playing_player].bet
-                    if action == Actions.raise_1:
-                        bet += 1
-                    elif action == Actions.raise_2:
-                        bet += 2
-                    self._make_bet(bet, self.playing_player)
-                elif action == Actions.all_in:
-                    self._make_bet(self.players[self.playing_player].chips, self.playing_player)
-                    self._all_in_players.add(self.playing_player)
-                else:
-                    winners = self._fold(self.playing_player)
-                if not winners:
-                    self._next_player()
+                valid_action = False
+                while not valid_action:
+                    try:
+                        action = self.players[self.playing_player].play(self.board, bets, self.active_players,
+                                                                        self._get_possible_actions(self.playing_player),
+                                                                        self.history, players_names=self.players_names)
+                        if self._print_logs:
+                            print('Player {p} chose to {a}'.format(p=self.playing_player, a=action.name))
+                        if action == Actions.check:
+                            self._pass_turn(self.playing_player)
+                        elif action in [Actions.match, Actions.raise_1, Actions.raise_2]:
+                            bet = self.highest_bet - self.players[self.playing_player].bet
+                            if action == Actions.raise_1:
+                                bet += 1
+                            elif action == Actions.raise_2:
+                                bet += 2
+                            self._make_bet(bet, self.playing_player)
+                        elif action == Actions.all_in:
+                            self._make_bet(self.players[self.playing_player].chips, self.playing_player)
+                            self._all_in_players.add(self.playing_player)
+                        else:
+                            winners = self._fold(self.playing_player)
+                        if not winners:
+                            self._next_player()
+                        valid_action = True
+                        self.history.append(action)
+                    except PokerException:
+                        print('This action is forbidden, select another action')
         return winners
 
     def _is_round_over(self):
@@ -189,7 +198,7 @@ class Game:
         actions.add(Actions.fold)
         return actions
 
-    def __init__(self, players, chips_per_player=10, print_info=False):
+    def __init__(self, players, chips_per_player=10, print_info=True):
         if len(players) < 2:
             raise ValueError("Must have at least two players")
         self._print_logs = print_info
@@ -229,6 +238,8 @@ class Game:
             else:
                 r = 0.0
             r -= p.bet
+            if self._print_logs:
+                print('Player {0} reward: {1}'.format(p.id, r))
             p.receive_reward(r)
 
     def __str__(self):
