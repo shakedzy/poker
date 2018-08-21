@@ -10,7 +10,7 @@ class Player:
     hand = list()
     bet = 0
 
-    def __init__(self, name=None):
+    def __init__(self, name=None, reward_callback=None):
         self.name = name
 
     def initialize(self, id, chips):
@@ -31,7 +31,7 @@ class Player:
         pass
 
     def __str__(self):
-        return 'Player(name={name},id={id},hand={hand},chips={chips},bet={bet})'.format(name=self.name, id=self.id,
+        return 'Player(name={name},id={id},hand=[{hand}],chips={chips},bet={bet})'.format(name=self.name, id=self.id,
                                                                                         hand=cards_to_string(self.hand, no_color=True),
                                                                                         chips=self.chips, bet=self.bet)
 
@@ -39,7 +39,7 @@ class Player:
 class Drunk(Player):
     _dont_fold = False
 
-    def __init__(self, name='Bob', dont_fold=False):
+    def __init__(self, name='Whisky McBeerface', dont_fold=False):
         self._dont_fold = dont_fold
         super(Drunk, self).__init__(name)
 

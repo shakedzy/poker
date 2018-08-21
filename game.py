@@ -14,10 +14,12 @@ class Game:
     game_over = False
     jackpot = 0
     history = list()
+    winners = list()
 
     _deck = list()
     _print_logs = True
     _all_in_players = set()
+    _round_start = True
 
     def _init_deck(self):
         self._deck = Deck()
@@ -113,6 +115,7 @@ class Game:
 
     def _next_round(self):
         winners = list()
+        self._round_start = True
         if len(self.board) == 5:
             winners = self._end_game()
         else:
@@ -132,6 +135,46 @@ class Game:
                 print('Board: {}'.format(cards_to_string(self.board)))
         return winners
 
+    def _play_move(self):
+        winners = list()
+        self._round_start = False
+        if self.playing_player in self._all_in_players:
+            if self._print_logs:
+                print('Player {} is all in'.format(self.playing_player))
+            self.history.append(Actions.check)
+            self._next_player()
+        else:
+            bets = dict(map(lambda p: (p[0], p[1].bet), enumerate(self.players)))
+            valid_action = False
+            while not valid_action:
+                try:
+                    action = self.players[self.playing_player].play(self.board, bets, self.active_players,
+                                                                    self._get_possible_actions(self.playing_player),
+                                                                    self.history, players_names=self.players_names)
+                    if self._print_logs:
+                        print('Player {p} chose to {a}'.format(p=self.playing_player, a=action.name))
+                    if action == Actions.check:
+                        self._pass_turn(self.playing_player)
+                    elif action in [Actions.match, Actions.raise_1, Actions.raise_2]:
+                        bet = self.highest_bet - self.players[self.playing_player].bet
+                        if action == Actions.raise_1:
+                            bet += 1
+                        elif action == Actions.raise_2:
+                            bet += 2
+                        self._make_bet(bet, self.playing_player)
+                    elif action == Actions.all_in:
+                        self._make_bet(self.players[self.playing_player].chips, self.playing_player)
+                        self._all_in_players.add(self.playing_player)
+                    else:
+                        winners = self._fold(self.playing_player)
+                    if not winners:
+                        self._next_player()
+                    valid_action = True
+                    self.history.append(action)
+                except PokerException:
+                    print('This action is forbidden, select another action')
+        return winners
+
     def _play_round(self):
         winners = list()
         round_start = True
@@ -140,6 +183,7 @@ class Game:
             if self.playing_player in self._all_in_players:
                 if self._print_logs:
                     print('Player {} is all in'.format(self.playing_player))
+                self.history.append(Actions.check)
                 self._next_player()
             else:
                 bets = dict(map(lambda p: (p[0], p[1].bet), enumerate(self.players)))
@@ -174,8 +218,11 @@ class Game:
         return winners
 
     def _is_round_over(self):
-        active_players_bets = [self.players[p].bet for p in self.active_players]
-        return self.playing_player != self.dealer and active_players_bets[1:] == active_players_bets[:-1]
+        if self._round_start:
+            return False
+        else:
+            active_players_bets = [self.players[p].bet for p in self.active_players]
+            return self.playing_player != self.dealer and active_players_bets[1:] == active_players_bets[:-1]
 
     def _get_possible_actions(self, player):
         actions = set()
@@ -198,9 +245,20 @@ class Game:
         actions.add(Actions.fold)
         return actions
 
+    def _give_rewards(self):
+        for p in self.players:
+            if p.id in self.winners:
+                r = float(self.jackpot) / len(self.winners)
+            else:
+                r = 0.0
+            r -= p.bet
+            if self._print_logs:
+                print('Player {0} reward: {1}'.format(p.id, r))
+            p.receive_reward(r)
+
     def __init__(self, players, chips_per_player=10, print_info=True):
         if len(players) < 2:
-            raise ValueError("Must have at least two players")
+            raise PokerException("Must have at least two players")
         self._print_logs = print_info
         self.players = players
         for i, p in enumerate(self.players):
@@ -227,6 +285,23 @@ class Game:
         if self._print_logs:
             print('Starting game...')
             print('Dealer: {}'.format(self.dealer))
+        self.winners = list()
+        self._round_start = True
+
+    def next_move(self):
+        if self.game_over:
+            raise PokerException('Game over, no more moves are allowed')
+        else:
+            self.winners = self._play_move() if not self._is_round_over() else self._next_round()
+            if self.winners:
+                self._give_rewards()
+
+
+
+    def Xstart(self):
+        if self._print_logs:
+            print('Starting game...')
+            print('Dealer: {}'.format(self.dealer))
         winners = list()
         while not winners:
             winners = self._play_round()
@@ -245,7 +320,7 @@ class Game:
     def __str__(self):
         return 'Game(players={players},'.format(players=[str(p) for p in self.players]) + \
                'active_players={ap},playing_player={pp},'.format(ap=self.active_players, pp=self.playing_player) + \
-               'dealer={dealer},board={board},highest_bet={hb},jackpot={jp},game_over={go})'.format(dealer=self.dealer,
+               'dealer={dealer},board=[{board}],highest_bet={hb},jackpot={jp},game_over={go})'.format(dealer=self.dealer,
                                                                                                      board=cards_to_string(self.board, no_color=True),
                                                                                                      hb=self.highest_bet,
                                                                                                      jp=self.jackpot,

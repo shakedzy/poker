@@ -16,5 +16,9 @@ def reset_seed():
 
 
 def cards_to_string(cards, no_color=False):
-    str_cards = map(lambda c: Card.int_to_pretty_str(c, no_color=no_color), cards)
+    if no_color:
+        str_func = Card.int_to_str
+    else:
+        str_func = Card.int_to_pretty_str
+    str_cards = map(lambda c: str_func(c), cards)
     return ','.join(str_cards)
